@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<!--
+/**
+ * Copyright (c) 2018, Andy Janata
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification, are permitted
+ * provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this list of conditions
+ *   and the following disclaimer.
+ * * Redistributions in binary form must reproduce the above copyright notice, this list of
+ *   conditions and the following disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+ * WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+-->
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="pyx.css" media="screen">
+    <title>PYX Round</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+
+      function GameName(props) {
+        if (props.draw > 0 || props.pick > 1) {
+          return <div className="logo_text">PYX</div>
+        } else {
+          return <div className="logo_text">Pretend You&apos;re Xyzzy</div>
+        }
+      }
+
+      function CardFooter(props) {
+        return (
+          <div className="logo">
+            <div className="logo_1 logo_element">
+            </div>
+            <div className="logo_2 logo_element">
+            </div>
+            <div className="logo_3 logo_element watermark_container">
+              <br/>
+              <span className="watermark">{props.watermark}</span>
+            </div>
+            <GameName {...props} />
+          </div>
+        );
+      }
+
+      function Pick(props) {
+        if (props.pick > 1) {
+          return <div className="pick">PICK <div className="card_number">{props.pick}</div></div>
+        } else {
+          return <div className="draw hide"></div>
+        }
+      }
+
+      function Draw(props) {
+        if (props.draw > 0) {
+          return <div className="draw">DRAW <div className="card_number">{props.draw}</div></div>
+        } else {
+          return <div className="draw hide"></div>
+        }
+      }
+
+      function BlackCard(props) {
+        return (
+          <div className="card blackcard">
+            <span className="card_text">{props.text}</span>
+            <CardFooter {...props}/>
+            <div className="card_metadata">
+              <Draw {...props} />
+              <Pick {...props} />
+            </div>
+          </div>
+        );
+      }
+
+      function WhiteCard(props) {
+        const classes = "card whitecard" + (!!props.selected ? " selected" : "");
+        return (
+          <div className={classes}>
+            <span className="card_text">{props.text}</span>
+            <CardFooter {...props}/>
+          </div>
+        );
+      }
+
+      function WhiteCards(props) {
+        // TODO watermarks
+        const cards = props.cards.map((card) =>
+          <WhiteCard key={card} text={card} selected={props.selected}/>
+        );
+        return <div className="game_white_cards_binder">{cards}</div>
+      }
+
+      function RoundHolder(props) {
+        const otherPlays = props.OtherPlays.map((cards) =>
+          <WhiteCards key={cards} cards={cards} />
+        );
+        return (
+          <div style={{"width": "100%", "height": "100%"}}>
+            <div className="game_left_side">
+              <div className="game_black_card_wrapper">
+                <span tabIndex="0">The black card for this round is:</span>
+                <BlackCard text={props.BlackCard} />
+              </div>
+            </div>
+            <div className="game_right_side">
+              <div className="game_right_side_box game_white_card_wrapper">
+                <span tabIndex="0">The white cards played this round are:</span>
+                <div className="game_white_cards game_right_side_cards">
+                  <WhiteCards cards={props.WinningPlay} selected={true} />
+                  {otherPlays}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (window.location.hash.length < 2) {
+        ReactDOM.render(
+          <div>You need to specify a round ID in the hash portion of the URL.</div>,
+          document.getElementById('root')
+        )
+      } else if (!self.fetch) {
+        ReactDOM.render(
+          <div>You need to use a browser that supports the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API#Browser_compatibility">Fetch API.</a></div>,
+          document.getElementById('root')
+        )
+      } else {
+        // TODO lifecycle stuff if es6 is worth it?
+        var ok = false;
+        fetch("../round/" + window.location.hash.substring(1))
+          .then(response => {
+            ok = response.ok;
+            return response.json();
+          })
+          .then(
+            (result) => {
+              if (!ok) {
+                if (result.error) {
+                  throw new Error(result.error);
+                } else {
+                  throw new Error("Unknown reason.");
+                }
+              }
+              ReactDOM.render(
+                <RoundHolder {...result} />,
+                document.getElementById('root')
+              );
+            },
+            (error) => {
+              throw new Error(error)
+            }
+          )
+          .catch(error => {
+            // TODO better?
+            ReactDOM.render(
+              <div>Unable to load round: {error.message}</div>,
+              document.getElementById('root')
+            );
+          });
+      }
+
+      // ReactDOM.render(
+      //   <RoundHolder {...json} />,
+      //   document.getElementById('root')
+      // );
+
+    </script>
+    <!--
+      Note: this page is a great way to try React but it's not suitable for production.
+      It slowly compiles JSX with Babel in the browser and uses a large development build of React.
+
+      To set up a production-ready React build environment, follow these instructions:
+      * https://reactjs.org/docs/add-react-to-a-new-app.html
+      * https://reactjs.org/docs/add-react-to-an-existing-app.html
+
+      You can also use React without JSX, in which case you can remove Babel:
+      * https://reactjs.org/docs/react-without-jsx.html
+      * https://reactjs.org/docs/cdn-links.html
+    -->
+  </body>
+</html>

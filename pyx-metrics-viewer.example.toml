@@ -1,0 +1,6 @@
+[database]
+username="pyx"
+password="password"
+dbname="pyx_metrics"
+# only 5432, only plaintext
+host="10.0.0.1"
