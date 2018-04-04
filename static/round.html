@@ -77,6 +77,7 @@
       }
 
       function BlackCard(props) {
+        // TODO allow formatting on cards
         return (
           <div className="card blackcard">
             <span className="card_text">{props.text}</span>
@@ -90,6 +91,7 @@
       }
 
       function WhiteCard(props) {
+        // TODO allow formatting on cards
         const classes = "card whitecard" + (!!props.selected ? " selected" : "");
         return (
           <div className={classes}>

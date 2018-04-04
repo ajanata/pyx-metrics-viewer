@@ -94,6 +94,14 @@ func main() {
 			}
 			lastWasWinner = winner
 		}
+		// deal with the last (set of) card(s)
+		if len(temp) > 0 {
+			if lastWasWinner {
+				round.WinningPlay = temp
+			} else {
+				round.OtherPlays = append(round.OtherPlays, temp)
+			}
+		}
 		if rows.Err() != nil {
 			// TODO an error while iterating
 		}
