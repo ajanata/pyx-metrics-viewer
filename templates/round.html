@@ -64,7 +64,7 @@
         <div class="game_black_card_wrapper">
           <span tabIndex="0">The black card for this round was:</span>
           <div class="card blackcard">
-            <span class="card_text">{{ .BlackCard.Text }}</span>
+            <span class="card_text">{{ .BlackCard.Text | html }}</span>
             {{template "footer" .BlackCard}}
           </div>
         </div>
@@ -88,7 +88,7 @@
               <div class="game_white_cards_binder">
                 {{range $card := $cards}}
                   <div class="card whitecard">
-                    <span class="card_text">{{ $card.Text }}</span>
+                    <span class="card_text">{{ $card.Text | html }}</span>
                     {{template "footer" $card}}
                   </div>
                 {{end}}

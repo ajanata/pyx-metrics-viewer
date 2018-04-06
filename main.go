@@ -26,6 +26,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -55,7 +56,14 @@ func main() {
 	r := gin.Default()
 	r.GET("/round/:id", getRound)
 
+	r.SetFuncMap(template.FuncMap{
+		"html": html,
+	})
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/static", "static")
 	r.Run(":4080")
+}
+
+func html(value interface{}) template.HTML {
+	return template.HTML(fmt.Sprint(value))
 }
