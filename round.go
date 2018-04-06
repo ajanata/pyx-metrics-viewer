@@ -24,15 +24,20 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"strings"
+	"time"
 )
+
+var getRoundWhiteCards *sql.Stmt
+var getRoundInfo *sql.Stmt
 
 type CardMeta struct {
 	Color string
-	Draw  int
-	Pick  int
+	Draw  int16 `json:",omitempty"`
+	Pick  int16 `json:",omitempty"`
 }
 
 type Card struct {
@@ -45,25 +50,77 @@ type Round struct {
 	BlackCard   Card
 	WinningPlay []Card
 	OtherPlays  [][]Card
+	Timestamp   int64
+}
+
+func (round *Round) FormattedTimestamp() string {
+	return time.Unix(round.Timestamp, 0).UTC().Format(time.RFC1123)
+}
+
+func prepareRoundStmts(db *sql.DB) error {
+	var err error
+	getRoundWhiteCards, err = db.Prepare(
+		"SELECT jt.white_card_index, wc.text, wc.watermark, (rc.winner_session_id = jt.session_id) " +
+			"FROM round_complete rc " +
+			"JOIN round_complete__user_session__white_card jt ON jt.round_complete_uid = rc.uid " +
+			"JOIN white_card wc ON wc.uid = jt.white_card_uid " +
+			"WHERE rc.round_id = $1" +
+			"ORDER BY jt.session_id, jt.white_card_index ASC")
+	if err != nil {
+		return err
+	}
+	getRoundInfo, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, (rc.meta).timestamp " +
+		"FROM round_complete rc " +
+		"JOIN black_card bc on bc.uid = rc.black_card_uid " +
+		"WHERE rc.round_id = $1")
+	return err
 }
 
 func getRound(c *gin.Context) {
-	rows, err := getRoundStmt.Query(c.Param("id"))
+	info, err := getRoundInfo.Query(c.Param("id"))
 	if err != nil {
-		fmt.Printf("Unable to query for id %s: %v\n", c.Param("id"), err)
-		c.JSON(500, gin.H{"error": err})
+		exitError(c, 500, fmt.Sprintf("Unable to query for id %s: %v\n", c.Param("id"), err))
 		return
 	}
-	// this is the same in every row, so it's fine to re-set it every row
-	blackText := ""
-	round := Round{}
+	var blackText string
+	var blackWatermark string
+	var pick int16
+	var draw int16
+	var timestamp time.Time
+	if !info.Next() {
+		exitError(c, 404, "That round cannot be found. If you just played it, wait a few seconds and try again.")
+		info.Close()
+		return
+	}
+	info.Scan(&blackText, &blackWatermark, &pick, &draw, &timestamp)
+	fmt.Printf("draw %d pick %d\n", draw, pick)
+	round := Round{
+		BlackCard: Card{
+			Text:      blackText,
+			Watermark: blackWatermark,
+			Meta: CardMeta{
+				Color: "black",
+				Draw:  draw,
+				Pick:  pick,
+			},
+		},
+		Timestamp: timestamp.Unix(),
+	}
+	info.Close()
+
+	rows, err := getRoundWhiteCards.Query(c.Param("id"))
+	if err != nil {
+		exitError(c, 500, fmt.Sprintf("Unable to query for id %s: %v\n", c.Param("id"), err))
+		return
+	}
 	temp := []Card{}
 	lastWasWinner := false
 	for rows.Next() {
 		var whiteIndex int
 		var whiteText string
+		var whiteWatermark string
 		var winner bool
-		rows.Scan(&blackText, &whiteIndex, &whiteText, &winner)
+		rows.Scan(&whiteIndex, &whiteText, &whiteWatermark, &winner)
 		if whiteIndex == 0 {
 			// we're at the start of a new play
 			if len(temp) > 0 {
@@ -74,14 +131,16 @@ func getRound(c *gin.Context) {
 				}
 			}
 			temp = []Card{Card{
-				Text: whiteText,
-				Meta: CardMeta{Color: "white"},
+				Text:      whiteText,
+				Watermark: whiteWatermark,
+				Meta:      CardMeta{Color: "white"},
 			}}
 		} else {
 			// we're in the middle of a play
 			temp = append(temp, Card{
-				Text: whiteText,
-				Meta: CardMeta{Color: "white"},
+				Text:      whiteText,
+				Watermark: whiteWatermark,
+				Meta:      CardMeta{Color: "white"},
 			})
 		}
 		lastWasWinner = winner
@@ -97,23 +156,19 @@ func getRound(c *gin.Context) {
 	if rows.Err() != nil {
 		// TODO an error while iterating
 	}
-	if blackText != "" {
-		round.BlackCard = Card{
-			Text: blackText,
-			Meta: CardMeta{Color: "black"},
-		}
-		if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
-			c.HTML(200, "round", round)
-		} else {
-			c.JSON(200, round)
-		}
+	rows.Close()
+	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
+		c.HTML(200, "round", &round)
 	} else {
-		if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
-			c.String(404, "That round cannot be found. If you just played it, wait a few seconds and try again.")
-		} else {
-			c.JSON(404, gin.H{
-				"error": "That round cannot be found.",
-			})
-		}
+		c.JSON(200, round)
+	}
+}
+
+func exitError(c *gin.Context, status int, msg string) {
+	fmt.Printf("%s\n", msg)
+	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
+		c.String(status, msg)
+	} else {
+		c.JSON(status, gin.H{"error": msg})
 	}
 }

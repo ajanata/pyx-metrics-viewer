@@ -31,8 +31,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var getRoundStmt *sql.Stmt
-
 func main() {
 	config := loadConfig()
 
@@ -47,13 +45,7 @@ func main() {
 	}
 
 	// prepare statements
-	getRoundStmt, err = db.Prepare("SELECT bc.text, jt.white_card_index i, wc.text, (rc.winner_session_id = jt.session_id) winner " +
-		"FROM round_complete rc " +
-		"JOIN round_complete__user_session__white_card jt ON jt.round_complete_uid = rc.uid " +
-		"JOIN white_card wc ON wc.uid = jt.white_card_uid " +
-		"JOIN black_card bc ON bc.uid = rc.black_card_uid " +
-		"WHERE rc.round_id = $1" +
-		"ORDER BY jt.session_id, jt.white_card_index ASC")
+	err = prepareRoundStmts(db)
 	if err != nil {
 		fmt.Printf("Unable to prepare statement: %v\n", err)
 		return

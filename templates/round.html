@@ -10,6 +10,14 @@
     </div>
     {{template "gamename" .Meta}}
   </div>
+  <div class="card_metadata">
+    {{if gt .Meta.Draw 0}}
+      <div class="draw">DRAW <div class="card_number">{{.Meta.Draw}}</div></div>
+    {{end}}
+    {{if gt .Meta.Pick 1}}
+      <div class="pick">PICK <div class="card_number">{{.Meta.Pick}}</div></div>
+    {{end}}
+  </div>
 {{end}}
 {{define "gamename"}}
   {{if (and (eq .Color "black") (or (gt .Draw 0) (gt .Pick 1)))}}
@@ -51,10 +59,10 @@
     <title>PYX Round</title>
   </head>
   <body>
-    <div style="width: 100%, heigh": 100%>
+    <div style="width: 100%; height: 100%">
       <div class="game_left_side">
         <div class="game_black_card_wrapper">
-          <span tabIndex="0">The black card for this round is:</span>
+          <span tabIndex="0">The black card for this round was:</span>
           <div class="card blackcard">
             <span class="card_text">{{ .BlackCard.Text }}</span>
             {{template "footer" .BlackCard}}
@@ -63,7 +71,10 @@
       </div>
       <div class="game_right_side">
         <div class="game_right_side_box game_white_card_wrapper">
-          <span tabIndex="0">The white cards played this round are:</span>
+          <span tabIndex="0">
+            This round was played at <span id="round_played_timestamp">{{.FormattedTimestamp}}</span>.
+            The white cards played this round were:
+          </span>
           <div class="game_white_cards game_right_side_cards">
             <div class="game_white_cards_binder">
               {{range $card := .WinningPlay}}
@@ -87,6 +98,9 @@
         </div>
       </div>
     </div>
+    <script type="text/javascript">
+    document.getElementById("round_played_timestamp").innerText = new Date({{.Timestamp}} * 1000).toLocaleString();
+    </script>
   </body>
 </html>
 {{end}}
