@@ -54,7 +54,8 @@ type Round struct {
 }
 
 func (round *Round) FormattedTimestamp() string {
-	return time.Unix(round.Timestamp, 0).UTC().Format(time.RFC1123)
+	return time.Unix(round.Timestamp, 0).UTC().Format("Mon, 02 Jan 2006 15:04:05") + " PDT -0700"
+	//time.RFC1123)
 }
 
 func prepareRoundStmts(db *sql.DB) error {
@@ -93,7 +94,6 @@ func getRound(c *gin.Context) {
 		return
 	}
 	info.Scan(&blackText, &blackWatermark, &pick, &draw, &timestamp)
-	fmt.Printf("draw %d pick %d\n", draw, pick)
 	round := Round{
 		BlackCard: Card{
 			Text:      blackText,
