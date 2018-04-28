@@ -47,32 +47,46 @@ type Card struct {
 }
 
 type Round struct {
+	GameId      string
 	BlackCard   Card
 	WinningPlay []Card
 	OtherPlays  [][]Card
 	Timestamp   int64
 }
 
+type roundHandler struct{}
+
 func (round *Round) FormattedTimestamp() string {
-	return time.Unix(round.Timestamp, 0).UTC().Format("Mon, 02 Jan 2006 15:04:05") + " PDT -0700"
-	//time.RFC1123)
+	//	return time.Unix(round.Timestamp, 0).UTC().Format("Mon, 02 Jan 2006 15:04:05") + " PDT -0700"
+	return time.Unix(round.Timestamp, 0).UTC().Format(time.RFC1123)
 }
 
-func prepareRoundStmts(db *sql.DB) error {
+func init() {
+	log.Debug("Registering round handler")
+	registerHandler(roundHandler{})
+}
+
+func (h roundHandler) registerEndpoints(r *gin.Engine) {
+	log.Debug("Registering endpoint for round handler")
+	r.GET("/round/:id", getRound)
+}
+
+func (h roundHandler) prepareStatements(db *sql.DB) error {
+	log.Debug("Preparing statements for round handler")
 	var err error
 	getRoundWhiteCards, err = db.Prepare(
 		"SELECT jt.white_card_index, wc.text, wc.watermark, (rc.winner_session_id = jt.session_id) " +
 			"FROM round_complete rc " +
 			"JOIN round_complete__user_session__white_card jt ON jt.round_complete_uid = rc.uid " +
 			"JOIN white_card wc ON wc.uid = jt.white_card_uid " +
-			"WHERE rc.round_id = $1" +
+			"WHERE rc.round_id = $1 " +
 			"ORDER BY jt.session_id, jt.white_card_index ASC")
 	if err != nil {
 		return err
 	}
-	getRoundInfo, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, (rc.meta).timestamp " +
+	getRoundInfo, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, rc.game_id, ((rc.meta).timestamp AT TIME ZONE 'UTC') " +
 		"FROM round_complete rc " +
-		"JOIN black_card bc on bc.uid = rc.black_card_uid " +
+		"JOIN black_card bc ON bc.uid = rc.black_card_uid " +
 		"WHERE rc.round_id = $1")
 	return err
 }
@@ -80,20 +94,21 @@ func prepareRoundStmts(db *sql.DB) error {
 func getRound(c *gin.Context) {
 	info, err := getRoundInfo.Query(c.Param("id"))
 	if err != nil {
-		exitError(c, 500, fmt.Sprintf("Unable to query for id %s: %v\n", c.Param("id"), err))
+		returnError(c, 500, fmt.Sprintf("Unable to query for round id %s: %v", c.Param("id"), err))
 		return
 	}
+	defer info.Close()
 	var blackText string
 	var blackWatermark string
 	var pick int16
 	var draw int16
+	var gameId string
 	var timestamp time.Time
 	if !info.Next() {
-		exitError(c, 404, "That round cannot be found. If you just played it, wait a few seconds and try again.")
-		info.Close()
+		returnError(c, 404, "That round cannot be found. If you just played it, wait a few seconds and try again.")
 		return
 	}
-	info.Scan(&blackText, &blackWatermark, &pick, &draw, &timestamp)
+	info.Scan(&blackText, &blackWatermark, &pick, &draw, &gameId, &timestamp)
 	round := Round{
 		BlackCard: Card{
 			Text:      blackText,
@@ -104,15 +119,18 @@ func getRound(c *gin.Context) {
 				Pick:  pick,
 			},
 		},
+		GameId:    gameId,
 		Timestamp: timestamp.Unix(),
 	}
 	info.Close()
 
 	rows, err := getRoundWhiteCards.Query(c.Param("id"))
 	if err != nil {
-		exitError(c, 500, fmt.Sprintf("Unable to query for id %s: %v\n", c.Param("id"), err))
+		returnError(c, 500, fmt.Sprintf("Unable to query for id %s: %v", c.Param("id"), err))
 		return
 	}
+	defer rows.Close()
+
 	temp := []Card{}
 	lastWasWinner := false
 	for rows.Next() {
@@ -154,21 +172,11 @@ func getRound(c *gin.Context) {
 		}
 	}
 	if rows.Err() != nil {
-		// TODO an error while iterating
+		log.Errorf("Error while iterating over cards for round %s: %+v", c.Param("id"), rows.Err())
 	}
-	rows.Close()
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
 		c.HTML(200, "round", &round)
 	} else {
 		c.JSON(200, round)
-	}
-}
-
-func exitError(c *gin.Context, status int, msg string) {
-	fmt.Printf("%s\n", msg)
-	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
-		c.String(status, msg)
-	} else {
-		c.JSON(status, gin.H{"error": msg})
 	}
 }

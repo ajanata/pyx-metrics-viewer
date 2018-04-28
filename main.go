@@ -27,13 +27,49 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("main")
+var logFormat = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{level:.5s} %{id:03x} %{shortfunc} (%{shortfile}) %{color:reset}>%{message}`)
+
+type endpointHandler interface {
+	prepareStatements(*sql.DB) error
+	registerEndpoints(*gin.Engine)
+}
+
+var handlers []endpointHandler
+
+func registerHandler(handler endpointHandler) {
+	handlers = append(handlers, handler)
+}
 
 func main() {
 	config := loadConfig()
+
+	backendStdErr := logging.NewLogBackend(os.Stderr, "", 0)
+	formattedStdErr := logging.NewBackendFormatter(backendStdErr, logFormat)
+	stdErrLeveled := logging.AddModuleLevel(formattedStdErr)
+	level, err := logging.LogLevel(config.LogLevel)
+	if err != nil {
+		fmt.Printf("Unable to configure logging: %s", err)
+		return
+	}
+	stdErrLeveled.SetLevel(level, "")
+	logging.SetBackend(stdErrLeveled)
+
+	if config.RunDebugServer {
+		go func() {
+			log.Info(http.ListenAndServe("localhost:4680", nil))
+		}()
+	}
 
 	// TODO not suck
 	connStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable",
@@ -41,29 +77,43 @@ func main() {
 		config.Database.Host)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		fmt.Printf("Unable to connect to db: %v\n", err)
+		log.Errorf("Unable to connect to db: %v", err)
 		return
 	}
 
 	// prepare statements
-	err = prepareRoundStmts(db)
-	if err != nil {
-		fmt.Printf("Unable to prepare statement: %v\n", err)
-		return
+	for _, handler := range handlers {
+		err = handler.prepareStatements(db)
+		if err != nil {
+			log.Errorf("Unable to prepare statement: %v", err)
+			return
+		}
 	}
 
 	// configure router
 	r := gin.Default()
-	r.GET("/round/:id", getRound)
 
 	r.SetFuncMap(template.FuncMap{
-		"html": html,
+		"noescape": noescape,
 	})
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/static", "static")
+	// register all handlers
+	for _, handler := range handlers {
+		handler.registerEndpoints(r)
+	}
 	r.Run(":4080")
 }
 
-func html(value interface{}) template.HTML {
+func noescape(value interface{}) template.HTML {
 	return template.HTML(fmt.Sprint(value))
+}
+
+func returnError(c *gin.Context, status int, msg string) {
+	log.Errorf("Returning error (%d) for request (%s): %s", status, c.Request.URL, msg)
+	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
+		c.String(status, msg)
+	} else {
+		c.JSON(status, gin.H{"error": msg})
+	}
 }

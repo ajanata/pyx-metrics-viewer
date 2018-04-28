@@ -1,35 +1,4 @@
-{{define "footer"}}
-  <div class="logo">
-    <div class="logo_1 logo_element">
-    </div>
-    <div class="logo_2 logo_element">
-    </div>
-    <div class="logo_3 logo_element watermark_container">
-      <br/>
-      <span class="watermark">{{ .Watermark }}</span>
-    </div>
-    {{template "gamename" .Meta}}
-  </div>
-  <div class="card_metadata">
-    {{if gt .Meta.Draw 0}}
-      <div class="draw">DRAW <div class="card_number">{{.Meta.Draw}}</div></div>
-    {{end}}
-    {{if gt .Meta.Pick 1}}
-      <div class="pick">PICK <div class="card_number">{{.Meta.Pick}}</div></div>
-    {{end}}
-  </div>
-{{end}}
-{{define "gamename"}}
-  {{if (and (eq .Color "black") (or (gt .Draw 0) (gt .Pick 1)))}}
-    <div class="logo_text">PYX</div>
-  {{else}}
-    <div class="logo_text">Pretend You're Xyzzy</div>
-  {{end}}
-{{end}}
-{{define "round"}}
-<!DOCTYPE html>
-<!--
-/**
+{{/*
  * Copyright (c) 2018, Andy Janata
  * All rights reserved.
  *
@@ -50,8 +19,9 @@
  * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
  * WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
--->
+*/}}
+{{define "round"}}
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -64,14 +34,15 @@
         <div class="game_black_card_wrapper">
           <span tabIndex="0">The black card for this round was:</span>
           <div class="card blackcard">
-            <span class="card_text">{{ .BlackCard.Text | html }}</span>
-            {{template "footer" .BlackCard}}
+            <span class="card_text">{{ .BlackCard.Text | noescape }}</span>
+            {{template "cardFooter" .BlackCard}}
           </div>
         </div>
       </div>
       <div class="game_right_side">
         <div class="game_right_side_box game_white_card_wrapper">
           <span tabIndex="0">
+            <a href="../game/{{ .GameId }}">All rounds from this game</a>.
             This round was played at <span id="round_played_timestamp">{{.FormattedTimestamp}}</span>.
             The white cards played this round were:
           </span>
@@ -80,7 +51,7 @@
               {{range $card := .WinningPlay}}
                 <div class="card whitecard selected">
                   <span class="card_text">{{ $card.Text }}</span>
-                  {{template "footer" $card}}
+                  {{template "cardFooter" $card}}
                 </div>
               {{end}}
             </div>
@@ -88,8 +59,8 @@
               <div class="game_white_cards_binder">
                 {{range $card := $cards}}
                   <div class="card whitecard">
-                    <span class="card_text">{{ $card.Text | html }}</span>
-                    {{template "footer" $card}}
+                    <span class="card_text">{{ $card.Text | noescape }}</span>
+                    {{template "cardFooter" $card}}
                   </div>
                 {{end}}
               </div>

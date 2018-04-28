@@ -1,4 +1,4 @@
-/**
+{{/*
  * Copyright (c) 2018, Andy Janata
  * All rights reserved.
  *
@@ -19,42 +19,28 @@
  * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
  * WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-package main
-
-import (
-	"github.com/koding/multiconfig"
-)
-
-type DbConfig struct {
-	Username string `required:"true"`
-	Password string `required:"true"`
-	DbName   string `required:"true"`
-	Host     string
-}
-
-type Config struct {
-	Database       DbConfig
-	LogLevel       string
-	RunDebugServer bool
-}
-
-func loadConfig() *Config {
-	m := multiconfig.NewWithPath("pyx-metrics-viewer.toml")
-	c := new(Config)
-	m.MustLoad(c)
-	c.ensureDefaults()
-
-	return c
-}
-
-func (c *Config) ensureDefaults() {
-	c.Database.ensureDbDefaults()
-}
-
-func (config *DbConfig) ensureDbDefaults() {
-	if config.Host == "" {
-		config.Host = "localhost"
-	}
-}
+*/}}
+{{define "game"}}
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" type="text/css" href="../static/pyx.css" media="screen">
+    <title>PYX Game History</title>
+  </head>
+  <body>
+    <div>
+      <span tabindex="0">The rounds from this game, with the most recent round first:</span>
+      <br>
+      {{range $round := .}}
+        <a href="../round/{{ $round.RoundId }}" title="{{ $round.FormattedTimestamp }}">
+          <div class="card blackcard">
+            <span class="card_text">{{ $round.BlackCard.Text | noescape }}</span>
+            {{template "cardFooter" $round.BlackCard}}
+          </div>
+        </a>
+      {{end}}
+    </div>
+  </body>
+</html>
+{{end}}

@@ -1,4 +1,4 @@
-/**
+{{/*
  * Copyright (c) 2018, Andy Janata
  * All rights reserved.
  *
@@ -19,42 +19,32 @@
  * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
  * WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-package main
-
-import (
-	"github.com/koding/multiconfig"
-)
-
-type DbConfig struct {
-	Username string `required:"true"`
-	Password string `required:"true"`
-	DbName   string `required:"true"`
-	Host     string
-}
-
-type Config struct {
-	Database       DbConfig
-	LogLevel       string
-	RunDebugServer bool
-}
-
-func loadConfig() *Config {
-	m := multiconfig.NewWithPath("pyx-metrics-viewer.toml")
-	c := new(Config)
-	m.MustLoad(c)
-	c.ensureDefaults()
-
-	return c
-}
-
-func (c *Config) ensureDefaults() {
-	c.Database.ensureDbDefaults()
-}
-
-func (config *DbConfig) ensureDbDefaults() {
-	if config.Host == "" {
-		config.Host = "localhost"
-	}
-}
+*/}}
+{{define "cardFooter"}}
+  <div class="logo">
+    <div class="logo_1 logo_element">
+    </div>
+    <div class="logo_2 logo_element">
+    </div>
+    <div class="logo_3 logo_element watermark_container">
+      <br/>
+      <span class="watermark">{{ .Watermark }}</span>
+    </div>
+    {{template "gamename" .Meta}}
+  </div>
+  <div class="card_metadata">
+    {{if gt .Meta.Draw 0}}
+      <div class="draw">DRAW <div class="card_number">{{.Meta.Draw}}</div></div>
+    {{end}}
+    {{if gt .Meta.Pick 1}}
+      <div class="pick">PICK <div class="card_number">{{.Meta.Pick}}</div></div>
+    {{end}}
+  </div>
+{{end}}
+{{define "gamename"}}
+  {{if (and (eq .Color "black") (or (gt .Draw 0) (gt .Pick 1)))}}
+    <div class="logo_text">PYX</div>
+  {{else}}
+    <div class="logo_text">Pretend You're Xyzzy</div>
+  {{end}}
+{{end}}

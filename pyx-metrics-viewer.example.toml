@@ -1,3 +1,6 @@
+loglevel="INFO"
+rundebugserver=false
+
 [database]
 username="pyx"
 password="password"
