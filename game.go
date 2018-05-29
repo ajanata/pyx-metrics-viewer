@@ -39,11 +39,21 @@ type RoundMeta struct {
 	BlackCard Card
 }
 
+type GameMeta struct {
+	GameId    string
+	Timestamp int64
+}
+
 type gameHandler struct{}
 
 func (round *RoundMeta) FormattedTimestamp() string {
 	//	return time.Unix(round.Timestamp, 0).UTC().Format("Mon, 02 Jan 2006 15:04:05") + " PDT -0700"
 	return time.Unix(round.Timestamp, 0).UTC().Format(time.RFC1123)
+}
+
+func (game *GameMeta) FormattedTimestamp() string {
+	//	return time.Unix(game.Timestamp, 0).UTC().Format("Mon, 02 Jan 2006 15:04:05") + " PDT -0700"
+	return time.Unix(game.Timestamp, 0).UTC().Format(time.RFC1123)
 }
 
 func init() {

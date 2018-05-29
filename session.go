@@ -32,12 +32,14 @@ import (
 )
 
 var getSessionInfoStmt *sql.Stmt
+var getSessionGamesStmt *sql.Stmt
 var getSessionPlayedRoundsStmt *sql.Stmt
 var getSessionJudgedRoundsStmt *sql.Stmt
 
 type SessionMeta struct {
 	LogInTimestamp int64
 	PersistentId   string
+	Games          []GameMeta
 	PlayedRounds   []RoundMeta
 	JudgedRounds   []RoundMeta
 }
@@ -69,6 +71,22 @@ func (h sessionHandler) prepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	// Assume that the user will not judge a round in a game without playing in at least one round.
+	// Querying for that at the same time makes it not use indexes, which makes this suck.
+	getSessionGamesStmt, err = db.Prepare("SELECT game_id, ((meta).timestamp AT TIME ZONE 'UTC') " +
+		"FROM game_start " +
+		"WHERE game_id IN (" +
+		"  SELECT DISTINCT(rc.game_id) " +
+		"  FROM round_complete__user_session__white_card jt " +
+		"  JOIN round_complete rc ON rc.uid = jt.round_complete_uid " +
+		"  WHERE jt.session_id = $1 AND jt.white_card_index = 0 " +
+		"  ORDER BY rc.game_id" +
+		")")
+	if err != nil {
+		return err
+	}
+
 	getSessionPlayedRoundsStmt, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, rc.round_id, ((rc.meta).timestamp AT TIME ZONE 'UTC') " +
 		"FROM round_complete__user_session__white_card jt " +
 		"JOIN round_complete rc ON rc.uid = jt.round_complete_uid " +
@@ -78,12 +96,12 @@ func (h sessionHandler) prepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
 	getSessionJudgedRoundsStmt, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, rc.round_id, ((rc.meta).timestamp AT TIME ZONE 'UTC') " +
 		"FROM round_complete rc " +
 		"JOIN black_card bc ON bc.uid = rc.black_card_uid " +
 		"WHERE rc.judge_session_id = $1 " +
 		"ORDER BY ((rc.meta).timestamp) DESC")
-
 	return err
 }
 
@@ -117,6 +135,24 @@ func getSession(c *gin.Context) {
 		returnError(c, 500, fmt.Sprintf("Unable to query for session with id %s: %v", c.Param("id"), err))
 		return
 	}
+
+	q, err = getSessionGamesStmt.Query(c.Param("id"))
+	if err != nil {
+		returnError(c, 500, fmt.Sprintf("Unable to query for session with id %s: %v", c.Param("id"), err))
+		return
+	}
+	defer q.Close()
+	var games []GameMeta
+	for q.Next() {
+		var gameId string
+		var timestamp time.Time
+		q.Scan(&gameId, &timestamp)
+		games = append(games, GameMeta{
+			GameId:    gameId,
+			Timestamp: timestamp.Unix(),
+		})
+	}
+	session.Games = games
 
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
 		c.HTML(200, "session", &session)

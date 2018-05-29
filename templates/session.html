@@ -26,11 +26,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" type="text/css" href="../static/pyx.css" media="screen">
-    <title>PYX User History</title>
+    <title>PYX Session History</title>
   </head>
   <body>
     <div>
-      <span tabindex="0">The participated rounds from this user session, with the most recent round first:</span>
+      <span tabindex="0">This session participated in the following games, with the most recently started game first:</span>
+      <ul>
+        {{range $game := .Games}}
+          <li><a href="../game/{{ $game.GameId }}">Game started at {{ $game.FormattedTimestamp }}</a></li>
+        {{end}}
+      </ul>
+    </div>
+    <div>
+      <span tabindex="0">This session participated in these rounds, with the most recent round first:</span>
       <br>
       {{range $round := .PlayedRounds}}
         <a href="../round/{{ $round.RoundId }}" title="{{ $round.FormattedTimestamp }}">
@@ -43,7 +51,7 @@
     </div>
     <br style="clear:both">
     <div>
-      <span tabindex="0">The judged rounds from this user session, with the most recent round first:</span>
+      <span tabindex="0">This session judged these rounds, with the most recent round first:</span>
       <br>
       {{range $round := .JudgedRounds}}
         <a href="../round/{{ $round.RoundId }}" title="{{ $round.FormattedTimestamp }}">
