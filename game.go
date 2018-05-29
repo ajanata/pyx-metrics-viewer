@@ -31,7 +31,7 @@ import (
 	"time"
 )
 
-var getRoundsStmt *sql.Stmt
+var getGameRoundsStmt *sql.Stmt
 
 type RoundMeta struct {
 	RoundId   string
@@ -59,16 +59,16 @@ func (h gameHandler) registerEndpoints(r *gin.Engine) {
 func (h gameHandler) prepareStatements(db *sql.DB) error {
 	log.Debug("Preparing statements for game handler")
 	var err error
-	getRoundsStmt, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, rc.round_id, ((rc.meta).timestamp AT TIME ZONE 'UTC') " +
+	getGameRoundsStmt, err = db.Prepare("SELECT bc.text, bc.watermark, bc.pick, bc.draw, rc.round_id, ((rc.meta).timestamp AT TIME ZONE 'UTC') " +
 		"FROM round_complete rc " +
 		"JOIN black_card bc ON bc.uid = rc.black_card_uid " +
 		"WHERE rc.game_id = $1 " +
-		"ORDER BY ((rc.meta)) DESC")
+		"ORDER BY ((rc.meta).timestamp) DESC")
 	return err
 }
 
 func getGame(c *gin.Context) {
-	q, err := getRoundsStmt.Query(c.Param("id"))
+	q, err := getGameRoundsStmt.Query(c.Param("id"))
 	if err != nil {
 		returnError(c, 500, fmt.Sprintf("Unable to query for game id %s: %v", c.Param("id"), err))
 		return
