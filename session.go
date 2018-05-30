@@ -142,17 +142,18 @@ func getSession(c *gin.Context) {
 		return
 	}
 	defer q.Close()
-	var games []GameMeta
 	for q.Next() {
 		var gameId string
 		var timestamp time.Time
 		q.Scan(&gameId, &timestamp)
-		games = append(games, GameMeta{
+		session.Games = append(session.Games, GameMeta{
 			GameId:    gameId,
 			Timestamp: timestamp.Unix(),
 		})
 	}
-	session.Games = games
+	if q.Err() != nil {
+		log.Errorf("Error while iterating over games for session %s: %+v", c.Param("id"), q.Err())
+	}
 
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
 		c.HTML(200, "session", &session)
