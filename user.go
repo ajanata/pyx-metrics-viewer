@@ -36,8 +36,6 @@ var getUserSessionsStmt *sql.Stmt
 type SessionBasics struct {
 	SessionId      string
 	LogInTimestamp int64
-	RoundsPlayed   uint
-	RoundsJudged   uint
 }
 
 type UserMeta struct {
@@ -49,6 +47,10 @@ type userHandler struct{}
 func (session *SessionBasics) FormattedTimestamp() string {
 	//	return time.Unix(session.LogInTimestamp, 0).UTC().Format("Mon, 02 Jan 2006 15:04:05") + " PDT -0700"
 	return time.Unix(session.LogInTimestamp, 0).UTC().Format(time.RFC1123)
+}
+
+func (session *SessionBasics) ServerId() string {
+	return strings.Split(session.SessionId, "_")[0]
 }
 
 func init() {
@@ -64,9 +66,7 @@ func (h userHandler) registerEndpoints(r *gin.Engine) {
 func (h userHandler) prepareStatements(db *sql.DB) error {
 	log.Debug("Preparing statements for user handler")
 	var err error
-	getUserSessionsStmt, err = db.Prepare("SELECT us.session_id, ((us.meta).timestamp AT TIME ZONE 'UTC'), " +
-		"  (SELECT COUNT(*) FROM round_complete WHERE judge_session_id = us.session_id) judged, " +
-		"  (SELECT COUNT(*) FROM round_complete__user_session__white_card WHERE session_id = us.session_id AND white_card_index = 0) played " +
+	getUserSessionsStmt, err = db.Prepare("SELECT us.session_id, ((us.meta).timestamp AT TIME ZONE 'UTC') " +
 		"FROM user_session us " +
 		"WHERE us.persistent_id = $1 " +
 		"ORDER BY (us.meta).timestamp DESC")
@@ -84,14 +84,10 @@ func getUser(c *gin.Context) {
 	for q.Next() {
 		var sessionId string
 		var timestamp time.Time
-		var judged uint
-		var played uint
-		q.Scan(&sessionId, &timestamp, &judged, &played)
+		q.Scan(&sessionId, &timestamp)
 		user.Sessions = append(user.Sessions, SessionBasics{
 			SessionId:      sessionId,
 			LogInTimestamp: timestamp.Unix(),
-			RoundsJudged:   judged,
-			RoundsPlayed:   played,
 		})
 	}
 	if q.Err() != nil {

@@ -35,6 +35,7 @@ var getSessionInfoStmt *sql.Stmt
 var getSessionGamesStmt *sql.Stmt
 var getSessionPlayedRoundsStmt *sql.Stmt
 var getSessionJudgedRoundsStmt *sql.Stmt
+var getSessionRoundCountsStmt *sql.Stmt
 
 type SessionMeta struct {
 	LogInTimestamp int64
@@ -42,6 +43,12 @@ type SessionMeta struct {
 	Games          []GameMeta
 	PlayedRounds   []RoundMeta
 	JudgedRounds   []RoundMeta
+}
+
+type SessionCounts struct {
+	SessionId        string
+	PlayedRoundCount int
+	JudgedRoundCount int
 }
 
 type sessionHandler struct{}
@@ -59,6 +66,7 @@ func init() {
 func (h sessionHandler) registerEndpoints(r *gin.Engine) {
 	log.Debug("Registering endpoint for session handler")
 	r.GET("/session/:id", getSession)
+	r.GET("/session/:id/stats", getSessionStats)
 }
 
 func (h sessionHandler) prepareStatements(db *sql.DB) error {
@@ -102,6 +110,15 @@ func (h sessionHandler) prepareStatements(db *sql.DB) error {
 		"JOIN black_card bc ON bc.uid = rc.black_card_uid " +
 		"WHERE rc.judge_session_id = $1 " +
 		"ORDER BY ((rc.meta).timestamp) DESC")
+	if err != nil {
+		return err
+	}
+
+	getSessionRoundCountsStmt, err = db.Prepare("SELECT " +
+		"  (SELECT COUNT(*) FROM round_complete WHERE judge_session_id = us.session_id) judged, " +
+		"  (SELECT COUNT(*) FROM round_complete__user_session__white_card WHERE session_id = us.session_id AND white_card_index = 0) played " +
+		"FROM user_session us " +
+		"WHERE us.session_id = $1 ")
 	return err
 }
 
@@ -192,4 +209,31 @@ func getSessionRounds(q *sql.Rows, err error) ([]RoundMeta, error) {
 	}
 
 	return rounds, q.Err()
+}
+
+func getSessionStats(c *gin.Context) {
+	q, err := getSessionRoundCountsStmt.Query(c.Param("id"))
+	if err != nil {
+		returnError(c, 500, fmt.Sprintf("Unable to query stats for session with id %s: %v",
+			c.Param("id"), err))
+		return
+	}
+	defer q.Close()
+
+	counts := SessionCounts{
+		SessionId: c.Param("id"),
+	}
+	if !q.Next() {
+		msg := "ID not found"
+		if q.Err() != nil {
+			log.Error("While processing result for session %s: %v", c.Param("id"), q.Err())
+			msg = q.Err().Error()
+		}
+		returnError(c, 500, fmt.Sprintf("Unable to query stats for session with id %s: %s",
+			c.Param("id"), msg))
+		return
+	}
+	q.Scan(&counts.JudgedRoundCount, &counts.PlayedRoundCount)
+
+	c.JSON(200, counts)
 }

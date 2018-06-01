@@ -27,17 +27,66 @@
     <meta charset="UTF-8" />
     <link rel="stylesheet" type="text/css" href="../static/pyx.css" media="screen">
     <title>PYX User History</title>
+    <script src="../static/sorttable.js"></script>
+    <script>
+    function pyx_loaded() {
+      if (!self.fetch) {
+        document.getElementById("badbrowser").style.removeProperty("display");
+        return;
+      }
+
+      var ids = [
+      {{range $session := .Sessions}}
+        '{{$session.SessionId}}',
+      {{end}}
+      ];
+
+      for (var i = 0; i < ids.length; i++) {
+        fetch('../session/' + ids[i] + '/stats')
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(json) {
+            if (!json.SessionId) {
+              return;
+            }
+            var playedElem = document.getElementById("played_" + json.SessionId);
+            if (playedElem) {
+              playedElem.innerText = json['PlayedRoundCount'];
+            }
+            var judgedElem = document.getElementById("judged_" + json.SessionId);
+            if (judgedElem) {
+              judgedElem.innerText = json['JudgedRoundCount'];
+            }
+          });
+      }
+    }
+    </script>
   </head>
-  <body>
+  <body onload="pyx_loaded()">
     <div>
-      <span tabindex="0">This user had the following sessions, most recent first:</span>
+      <span tabindex="0">This user had the following sessions:</span>
+      <div style="display:none" id="badbrowser">
+        You must use a browser that supports the
+        <a href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API#Browser_compatibility">
+          Fetch API
+        </a> in order for rounds played and judged to populate below. Usually, this means don't
+        use Internet Explorer.
+      </div>
       <br>
-      <ul>
+      <table class="sortable">
+        <tr><th>Server</th><th>Time</th><th>Rounds Played</th><th>Rounds Judged</th></tr>
         {{range $session := .Sessions}}
-          <li><a href="../session/{{ $session.SessionId }}">{{ $session.FormattedTimestamp }}
-          ({{ $session.RoundsPlayed }} rounds played, {{ $session.RoundsJudged }} rounds judged)</a></li>
+          <tr>
+            <td>{{ $session.ServerId }}</td>
+            <td sorttable_customkey="{{ $session.LogInTimestamp }}">
+              <a href="../session/{{ $session.SessionId }}">{{ $session.FormattedTimestamp }}</a>
+            </td>
+            <td id="played_{{ $session.SessionId }}">(loading)</td>
+            <td id="judged_{{ $session.SessionId }}">(loading)</td>
+          </tr>
         {{end}}
-      </ul>
+      </table>
     </div>
   </body>
 </html>
