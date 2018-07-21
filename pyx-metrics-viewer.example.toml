@@ -1,5 +1,8 @@
 loglevel="INFO"
 rundebugserver=false
+# .co covers .com and .co.uk too, obviously
+# specify in lower case
+filteredtext=["http",".co",".org",".net","www.","[img]"]
 
 [database]
 username="pyx"

@@ -38,6 +38,7 @@ type Config struct {
 	Database       DbConfig
 	LogLevel       string
 	RunDebugServer bool
+	FilteredText   []string `required:"true"`
 }
 
 func loadConfig() *Config {

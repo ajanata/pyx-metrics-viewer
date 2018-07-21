@@ -139,6 +139,7 @@ func getRound(c *gin.Context) {
 		var whiteWatermark string
 		var winner bool
 		rows.Scan(&whiteIndex, &whiteText, &whiteWatermark, &winner)
+		whiteText = filterWhiteCardText(whiteText)
 		if whiteIndex == 0 {
 			// we're at the start of a new play
 			if len(temp) > 0 {
@@ -179,4 +180,15 @@ func getRound(c *gin.Context) {
 	} else {
 		c.JSON(200, round)
 	}
+}
+
+func filterWhiteCardText(text string) string {
+	lower := strings.ToLower(text)
+	for _, str := range config.FilteredText {
+		if strings.Contains(lower, str) {
+			log.Infof("Filtering card text for matching '%s': '%s'", str, text)
+			return "(This card contains a URL and has been filtered.)"
+		}
+	}
+	return text
 }

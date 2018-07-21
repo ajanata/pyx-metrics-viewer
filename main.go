@@ -39,6 +39,7 @@ import (
 
 var log = logging.MustGetLogger("main")
 var logFormat = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{level:.5s} %{id:03x} %{shortfunc} (%{shortfile}) %{color:reset}>%{message}`)
+var config *Config
 
 type endpointHandler interface {
 	prepareStatements(*sql.DB) error
@@ -52,7 +53,7 @@ func registerHandler(handler endpointHandler) {
 }
 
 func main() {
-	config := loadConfig()
+	config = loadConfig()
 
 	backendStdErr := logging.NewLogBackend(os.Stderr, "", 0)
 	formattedStdErr := logging.NewBackendFormatter(backendStdErr, logFormat)
