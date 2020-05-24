@@ -1,3 +1,6 @@
 pyx-metrics-viewer.toml
 .project
 .settings/
+pyx-metrics-viewer
+pyx-metrics-viewer.exe
+.idea/
