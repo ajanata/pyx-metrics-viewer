@@ -172,6 +172,7 @@ func getDeck(c *gin.Context) {
 	deck, status, err := loadDeck(strID)
 	if err != nil {
 		returnError(c, status, err.Error())
+		return
 	}
 
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
