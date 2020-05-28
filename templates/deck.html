@@ -37,7 +37,7 @@
           it will only be retrieved by the first deck that contained it. If a card was removed from a deck, it will
           still show up here.</p>
       <p>This deck contained {{ .WhiteCount }} white cards and {{ .BlackCount }} black cards, of which
-      {{ len .WhiteCards }} white cards and {{ len .BlackCards }} were retrieved.</p>
+      {{ len .WhiteCards }} white cards and {{ len .BlackCards }} black cards were retrieved.</p>
       <div>
           {{range $card := .BlackCards}}
               <div class="card blackcard">
