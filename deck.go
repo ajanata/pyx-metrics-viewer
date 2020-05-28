@@ -167,7 +167,7 @@ func loadDeck(strID string) (Deck, int, error) {
 }
 
 func getDeck(c *gin.Context) {
-	strID := c.Param("id")
+	strID := strings.ToUpper(c.Param("id"))
 
 	deck, status, err := loadDeck(strID)
 	if err != nil {
