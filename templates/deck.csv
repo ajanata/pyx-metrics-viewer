@@ -1,0 +1,4 @@
+{{define "deck_csv"}}color,text,draw,pick
+{{range $card := .BlackCards}}black,{{ $card.Text }},{{ $card.Meta.Draw }},{{ $card.Meta.Pick }}
+{{end}}{{range $card := .WhiteCards}}white,{{ $card.Text }},,
+{{end}}{{end}}
